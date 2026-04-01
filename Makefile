@@ -15,6 +15,8 @@ docker-build:
 docker-run:
 	@docker compose run --rm \
 		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
+		-e LOG_LEVEL=$(or $(LOG_LEVEL),INFO) \
+		-e PYTHONUNBUFFERED=1 \
 		bot
 
 lint:
