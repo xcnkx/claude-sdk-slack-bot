@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Run as non-root (required by Claude Code CLI with bypassPermissions)
-RUN useradd -m bot && mkdir -p /app && chown bot:bot /app
+RUN useradd -m bot && mkdir -p /app && chown bot:bot /app \
+    && mkdir -p /home/bot/.claude && chown bot:bot /home/bot/.claude
 
 WORKDIR /app
 
