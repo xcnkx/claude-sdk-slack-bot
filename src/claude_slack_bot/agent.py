@@ -17,6 +17,26 @@ from claude_slack_bot.config import (
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_PROMPT = """\
+あなたはSlack上で動作するアシスタントです。回答はSlackのmrkdwn記法で整形してください。
+
+## Slack mrkdwn記法ルール
+- 太字: *テキスト*
+- 斜体: _テキスト_
+- 取り消し線: ~テキスト~
+- コード: `コード`
+- コードブロック: ```コードブロック```
+- 引用: > テキスト
+- リスト: - 項目 または 1. 項目
+- リンク: <URL|表示テキスト>
+
+## 注意
+- Markdownの **太字** や ### 見出し は使わない（Slackでは表示されない）
+- 回答は簡潔にまとめる
+- 長文は箇条書きやコードブロックで見やすく整形する
+- 日本語で回答する
+"""
+
 
 @dataclass
 class _SessionEntry:
@@ -35,6 +55,7 @@ class SessionManager:
 
     def _make_options(self) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
+            system_prompt=SYSTEM_PROMPT,
             setting_sources=["user"],
             allowed_tools=list(ALLOWED_TOOLS),
             permission_mode=PERMISSION_MODE,
