@@ -11,9 +11,8 @@ RUN npm install -g @anthropic-ai/claude-code
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
-
 COPY src/ src/
+RUN uv sync --frozen --no-dev
 
 # Required env vars at runtime:
 #   SLACK_BOT_TOKEN, SLACK_APP_TOKEN
