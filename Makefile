@@ -20,7 +20,8 @@ docker-run: docker-build
 		bot
 
 docker-stop:
-	docker compose down
+	@docker ps --filter "name=claude-slack-bot" --format "{{.ID}}" | xargs -r docker stop 2>/dev/null || true
+	@docker compose down --remove-orphans 2>/dev/null || true
 
 docker-logs:
 	docker compose logs -f bot
