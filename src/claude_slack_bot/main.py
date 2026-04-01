@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
 
