@@ -3,3 +3,5 @@ services:
     build: .
     env_file: .env
     # CLAUDE_CODE_OAUTH_TOKEN is injected via `make docker-run`
+    volumes:
+      - ~/.claude/skills:/home/bot/.claude/skills:ro
