@@ -10,13 +10,14 @@ RUN npm install -g @anthropic-ai/claude-code
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock README.md ./
-COPY src/ src/
-RUN uv sync --frozen --no-dev
-
 # Run as non-root (required by Claude Code CLI with bypassPermissions)
 RUN useradd -m bot
+
+COPY --chown=bot:bot pyproject.toml uv.lock README.md ./
+COPY --chown=bot:bot src/ src/
+
 USER bot
+RUN uv sync --frozen --no-dev
 
 # Required env vars at runtime:
 #   SLACK_BOT_TOKEN, SLACK_APP_TOKEN

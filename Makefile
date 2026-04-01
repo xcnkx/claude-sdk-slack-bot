@@ -9,6 +9,9 @@ run:
 dev:
 	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run python -m claude_slack_bot.main
 
+docker-build:
+	docker compose build --no-cache
+
 docker-run:
 	@docker compose run --rm \
 		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
