@@ -1,0 +1,40 @@
+[project]
+name = "claude-slack-bot"
+version = "0.1.0"
+description = "Slack bot powered by Claude Agent SDK with Skills support"
+readme = "README.md"
+authors = [
+    { name = "xcnkx", email = "c.kamia@cartahd.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk>=0.1.53",
+    "python-dotenv>=1.2.2",
+    "slack-bolt>=1.27.0",
+]
+
+[project.scripts]
+claude-slack-bot = "claude_slack_bot.main:main"
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.8",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/claude_slack_bot/main.py" = ["E402"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
