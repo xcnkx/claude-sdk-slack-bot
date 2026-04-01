@@ -8,6 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install gogcli (Google Workspace CLI)
+ARG TARGETARCH
+RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") \
+    && curl -fsSL "https://github.com/steipete/gogcli/releases/latest/download/gogcli_0.12.0_linux_${ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin gog
+
 # Run as non-root (required by Claude Code CLI with bypassPermissions)
 RUN useradd -m bot && mkdir -p /app && chown bot:bot /app \
     && mkdir -p /home/bot/.claude && chown bot:bot /home/bot/.claude
