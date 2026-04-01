@@ -10,14 +10,20 @@ dev:
 	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run python -m claude_slack_bot.main
 
 docker-build:
-	docker compose build --no-cache
+	docker compose build
 
-docker-run:
-	@docker compose run --rm \
+docker-run: docker-build
+	@docker compose run --rm -d \
 		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
 		-e LOG_LEVEL=$(or $(LOG_LEVEL),INFO) \
 		-e PYTHONUNBUFFERED=1 \
 		bot
+
+docker-stop:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f bot
 
 lint:
 	uv run ruff check src/
