@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "aiohttp>=3.13.5",
     "claude-agent-sdk>=0.1.53",
     "python-dotenv>=1.2.2",
     "slack-bolt>=1.27.0",
