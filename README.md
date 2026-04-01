@@ -1,4 +1,4 @@
-# claude-slack-bot
+# claude-sdk-slack-bot
 
 Claude Agent SDK を使った Slack Bot。`~/.claude/skills/` のスキルを Slack から実行できる。
 
