@@ -6,6 +6,16 @@ import os
 import signal
 import sys
 
+# ログ設定は他のモジュールのインポートより先に行う
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+)
+root_logger = logging.getLogger()
+root_logger.setLevel(getattr(logging, log_level, logging.INFO))
+root_logger.addHandler(handler)
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,12 +25,6 @@ from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from claude_slack_bot.bot import app, session_manager
 from claude_slack_bot.config import SLACK_APP_TOKEN
 
-log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    stream=sys.stdout,
-)
 logger = logging.getLogger(__name__)
 
 CLEANUP_INTERVAL_SECONDS = 300
