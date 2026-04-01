@@ -4,13 +4,13 @@
 _OAUTH_TOKEN = $(shell security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
 
 run:
-	CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) uv run claude-slack-bot
+	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run claude-slack-bot
 
 dev:
-	CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) uv run python -m claude_slack_bot.main
+	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run python -m claude_slack_bot.main
 
 docker-run:
-	docker compose run --rm \
+	@docker compose run --rm \
 		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
 		bot
 
