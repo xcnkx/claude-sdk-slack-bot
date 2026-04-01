@@ -1,0 +1,5 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    # CLAUDE_CODE_OAUTH_TOKEN is injected via `make docker-run`

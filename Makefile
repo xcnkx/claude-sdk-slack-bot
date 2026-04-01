@@ -1,10 +1,18 @@
-.PHONY: run dev lint fmt fix check
+.PHONY: run dev lint fmt fix check test docker-run
+
+# Extract OAuth token from macOS Keychain
+_OAUTH_TOKEN = $(shell security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
 
 run:
-	uv run claude-slack-bot
+	CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) uv run claude-slack-bot
 
 dev:
-	uv run python -m claude_slack_bot.main
+	CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) uv run python -m claude_slack_bot.main
+
+docker-run:
+	docker compose run --rm \
+		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
+		bot
 
 lint:
 	uv run ruff check src/
