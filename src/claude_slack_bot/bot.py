@@ -46,7 +46,7 @@ async def handle_mention(event: dict, say, client) -> None:  # noqa: ANN001
     channel = event["channel"]
     ts = event["ts"]
 
-    await client.reactions_add(channel=channel, name="hourglass", timestamp=ts)
+    await client.reactions_add(channel=channel, name="eyes", timestamp=ts)
     try:
         result = await session_manager.send_message(thread_ts, text)
         for chunk in _split_text(result):
@@ -59,9 +59,7 @@ async def handle_mention(event: dict, say, client) -> None:  # noqa: ANN001
         )
     finally:
         try:
-            await client.reactions_remove(
-                channel=channel, name="hourglass", timestamp=ts
-            )
+            await client.reactions_remove(channel=channel, name="eyes", timestamp=ts)
         except Exception:
             pass
 
@@ -87,7 +85,7 @@ async def handle_thread_message(event: dict, say, client) -> None:  # noqa: ANN0
     channel = event["channel"]
     ts = event["ts"]
 
-    await client.reactions_add(channel=channel, name="hourglass", timestamp=ts)
+    await client.reactions_add(channel=channel, name="eyes", timestamp=ts)
     try:
         result = await session_manager.send_message(thread_ts, text)
         for chunk in _split_text(result):
@@ -100,8 +98,6 @@ async def handle_thread_message(event: dict, say, client) -> None:  # noqa: ANN0
         )
     finally:
         try:
-            await client.reactions_remove(
-                channel=channel, name="hourglass", timestamp=ts
-            )
+            await client.reactions_remove(channel=channel, name="eyes", timestamp=ts)
         except Exception:
             pass

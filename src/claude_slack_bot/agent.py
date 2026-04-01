@@ -29,12 +29,17 @@ class SessionManager:
         self._sessions: dict[str, _SessionEntry] = {}
         self._lock = asyncio.Lock()
 
+    @staticmethod
+    def _log_stderr(line: str) -> None:
+        logger.warning("agent stderr: %s", line.rstrip())
+
     def _make_options(self) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
             setting_sources=["user"],
             allowed_tools=list(ALLOWED_TOOLS),
             permission_mode=PERMISSION_MODE,
             max_turns=MAX_TURNS,
+            stderr=self._log_stderr,
         )
 
     async def send_message(self, thread_ts: str, prompt: str) -> str:
