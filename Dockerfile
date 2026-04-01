@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN npm install -g @anthropic-ai/claude-code
 
-WORKDIR /app
-
 # Run as non-root (required by Claude Code CLI with bypassPermissions)
-RUN useradd -m bot
+RUN useradd -m bot && mkdir -p /app && chown bot:bot /app
+
+WORKDIR /app
 
 COPY --chown=bot:bot pyproject.toml uv.lock README.md ./
 COPY --chown=bot:bot src/ src/
