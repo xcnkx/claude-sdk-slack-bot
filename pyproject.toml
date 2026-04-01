@@ -3,9 +3,6 @@ name = "claude-slack-bot"
 version = "0.1.0"
 description = "Slack bot powered by Claude Agent SDK with Skills support"
 readme = "README.md"
-authors = [
-    { name = "xcnkx", email = "c.kamia@cartahd.com" }
-]
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.13.5",
