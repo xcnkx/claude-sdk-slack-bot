@@ -33,6 +33,7 @@ WORKDIR /app
 
 COPY --chown=bot:bot pyproject.toml uv.lock README.md ./
 COPY --chown=bot:bot src/ src/
+COPY --chown=bot:bot entrypoint.sh ./
 
 USER bot
 RUN uv sync --frozen --no-dev
@@ -40,4 +41,6 @@ RUN uv sync --frozen --no-dev
 # Required env vars at runtime:
 #   SLACK_BOT_TOKEN, SLACK_APP_TOKEN
 #   CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
-CMD ["sh", "-c", "uv run claude-slack-bot 2>&1"]
+# Optional for gogcli:
+#   GOG_TOKEN_WORK, GOG_TOKEN_PERSONAL
+CMD ["./entrypoint.sh"]

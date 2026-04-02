@@ -2,6 +2,4 @@ services:
   bot:
     build: .
     env_file: .env
-    # CLAUDE_CODE_OAUTH_TOKEN is injected via `make docker-run`
-    volumes:
-      - ~/Library/Application Support/gogcli:/home/bot/.config/gogcli:ro
+    # Tokens are injected via `make docker-run`
