@@ -20,6 +20,15 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") \
 RUN useradd -m bot && mkdir -p /app && chown bot:bot /app \
     && mkdir -p /home/bot/.claude && chown bot:bot /home/bot/.claude
 
+# Pull dotfiles and install Claude Code config & skills
+RUN git clone --depth 1 https://github.com/xcnkx/dotfiles.git /tmp/dotfiles \
+    && cp -R /tmp/dotfiles/claude/skills /home/bot/.claude/skills \
+    && cp -R /tmp/dotfiles/claude/commands /home/bot/.claude/commands \
+    && cp /tmp/dotfiles/claude/settings.json /home/bot/.claude/settings.json \
+    && cp /tmp/dotfiles/claude/CLAUDE.md /home/bot/.claude/CLAUDE.md \
+    && chown -R bot:bot /home/bot/.claude \
+    && rm -rf /tmp/dotfiles
+
 WORKDIR /app
 
 COPY --chown=bot:bot pyproject.toml uv.lock README.md ./
