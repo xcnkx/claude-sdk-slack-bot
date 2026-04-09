@@ -21,7 +21,10 @@ RUN useradd -m bot && mkdir -p /app && chown bot:bot /app \
     && mkdir -p /home/bot/.claude && chown bot:bot /home/bot/.claude
 
 # Pull dotfiles and install Claude Code config & skills
-RUN git clone --depth 1 https://github.com/xcnkx/dotfiles.git /tmp/dotfiles \
+# Requires GITHUB_TOKEN secret (passed via docker compose secrets)
+RUN --mount=type=secret,id=github_token \
+    GITHUB_TOKEN=$(cat /run/secrets/github_token) \
+    && git clone --depth 1 https://${GITHUB_TOKEN}:x-oauth-basic@github.com/xcnkx/dotfiles.git /tmp/dotfiles \
     && cp -R /tmp/dotfiles/claude/skills /home/bot/.claude/skills \
     && cp -R /tmp/dotfiles/claude/commands /home/bot/.claude/commands \
     && cp /tmp/dotfiles/claude/settings.json /home/bot/.claude/settings.json \

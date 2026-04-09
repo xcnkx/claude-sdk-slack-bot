@@ -1,6 +1,15 @@
 #!/bin/sh
 set -e
 
+# Import GCP OAuth client credentials for gogcli
+if [ -n "${GOG_CREDENTIALS:-}" ]; then
+  echo "$GOG_CREDENTIALS" > /tmp/gog_credentials.json
+  GOG_KEYRING_BACKEND=file GOG_KEYRING_PASSWORD="${GOG_KEYRING_PASSWORD:-claude-slack-bot}" \
+    gog auth credentials set /tmp/gog_credentials.json 2>&1
+  rm -f /tmp/gog_credentials.json
+  echo "gogcli credentials imported"
+fi
+
 # Import gogcli tokens from environment variable
 if [ -n "${GOG_TOKEN_WORK:-}" ]; then
   echo "$GOG_TOKEN_WORK" > /tmp/gog_work.json

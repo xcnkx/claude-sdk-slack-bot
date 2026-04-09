@@ -4,9 +4,18 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
+from claude_agent_sdk.types import (
+    AssistantMessage,
+    HookContext,
+    HookMatcher,
+    ResultMessage,
+    SyncHookJSONOutput,
+    TextBlock,
+)
 
 from claude_slack_bot.config import (
     ALLOWED_TOOLS,
@@ -43,14 +52,26 @@ SYSTEM_PROMPT_BASE = """\
 - 日本語で回答する
 """
 
-MEMORY_UPDATE_INSTRUCTIONS = """\
+MEMORY_HOOK_SYSTEM_PROMPT = """\
+あなたは記憶管理エージェントです。与えられた会話トランスクリプトを分析し、
+長期記憶として保存すべき情報があれば適切なファイルに追記してください。
+記憶すべき情報がなければ何もしないでください。
+"""
 
-## 記憶の更新ルール
-- ワークスペース全体で使える永続的な事実（会社情報、人物情報、設定など）を学んだ場合は `{workspace_path}` に追記する
-- このチャンネル固有の情報（今日の天気、チームの現状、チャンネル内でよく使う情報など）を学んだ場合は `{channel_path}` に追記する
-- 記憶の追記: Bash ツールで `printf '\\n- 新しい情報\\n' >> /path/to/file.md`
-- 一時的な情報（今日の予定など日付が変われば無意味になる情報）は記憶に書かない
-- 更新すべき情報がなければ記憶ファイルは触らない
+MEMORY_HOOK_PROMPT_TEMPLATE = """\
+以下の会話トランスクリプトを分析し、長期記憶として保存すべき情報があれば追記してください。
+
+## 記憶ファイル
+- ワークスペース全体の永続的な事実（会社情報、人物情報など） → `{workspace_path}`
+{channel_line}
+
+## 会話トランスクリプト
+{transcript}
+
+## ルール
+- 永続的な事実のみ記憶する（今日の予定・天気など一時的な情報は除く）
+- 追記: `printf '\\n- 情報\\n' >> /path/to/file.md`
+- 記憶不要なら何もしない
 """
 
 
@@ -70,23 +91,40 @@ class SessionManager:
     def _log_stderr(line: str) -> None:
         logger.warning("agent stderr: %s", line.rstrip())
 
-    def _build_system_prompt(
-        self, channel_id: str, workspace_mem: str, channel_mem: str
-    ) -> str:
+    def _build_system_prompt(self, workspace_mem: str, channel_mem: str) -> str:
         parts = [SYSTEM_PROMPT_BASE]
         if workspace_mem:
             parts.append(f"\n## ワークスペース記憶\n{workspace_mem}")
         if channel_mem:
             parts.append(f"\n## チャンネル記憶\n{channel_mem}")
-        parts.append(
-            MEMORY_UPDATE_INSTRUCTIONS.format(
-                workspace_path=memory_store.workspace_path,
-                channel_path=memory_store.channel_path(channel_id),
-            )
-        )
         return "".join(parts)
 
-    def _make_options(self, system_prompt: str) -> ClaudeAgentOptions:
+    def _make_stop_hook(
+        self, channel_id: str, channel_mem_enabled: bool
+    ):  # -> HookCallback
+        async def on_stop(
+            hook_input: Any,
+            tool_use_id: str | None,
+            context: HookContext,
+        ) -> SyncHookJSONOutput:
+            transcript_path = hook_input.get("transcript_path", "")
+            transcript = ""
+            if transcript_path:
+                try:
+                    transcript = Path(transcript_path).read_text()
+                except Exception:
+                    logger.warning("Could not read transcript at %s", transcript_path)
+
+            asyncio.create_task(
+                self._run_memory_hook(channel_id, transcript, channel_mem_enabled)
+            )
+            return {}
+
+        return on_stop
+
+    def _make_options(
+        self, system_prompt: str, channel_id: str, channel_mem_enabled: bool
+    ) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
             system_prompt=system_prompt,
             setting_sources=["user"],
@@ -94,6 +132,13 @@ class SessionManager:
             permission_mode=PERMISSION_MODE,
             max_turns=MAX_TURNS,
             stderr=self._log_stderr,
+            hooks={
+                "Stop": [
+                    HookMatcher(
+                        hooks=[self._make_stop_hook(channel_id, channel_mem_enabled)]
+                    )
+                ]
+            },
         )
 
     async def has_session(self, session_key: str) -> bool:
@@ -106,15 +151,18 @@ class SessionManager:
 
         if entry is None:
             workspace_mem = memory_store.load_workspace()
+            channel_mem_enabled = (
+                CHANNEL_MEMORY_ALL or channel_id in CHANNEL_MEMORY_ENABLED
+            )
             channel_mem = (
-                memory_store.load_channel(channel_id)
-                if (CHANNEL_MEMORY_ALL or channel_id in CHANNEL_MEMORY_ENABLED)
-                else ""
+                memory_store.load_channel(channel_id) if channel_mem_enabled else ""
             )
-            system_prompt = self._build_system_prompt(
-                channel_id, workspace_mem, channel_mem
+            system_prompt = self._build_system_prompt(workspace_mem, channel_mem)
+            client = ClaudeSDKClient(
+                options=self._make_options(
+                    system_prompt, channel_id, channel_mem_enabled
+                )
             )
-            client = ClaudeSDKClient(options=self._make_options(system_prompt))
             await client.connect(prompt)
             entry = _SessionEntry(client=client, channel_id=channel_id)
             async with self._lock:
@@ -137,6 +185,70 @@ class SessionManager:
                     logger.error("Agent error: %s", message.result)
                     return f"エラーが発生しました: {message.result}"
         return "\n".join(texts) or "完了しました。"
+
+    async def _run_memory_hook(
+        self,
+        channel_id: str,
+        transcript: str,
+        channel_mem_enabled: bool,
+    ) -> None:
+        if not transcript:
+            return
+
+        channel_line = (
+            f"- このチャンネル固有の情報 → `{memory_store.channel_path(channel_id)}`"
+            if channel_mem_enabled
+            else ""
+        )
+        memory_prompt = MEMORY_HOOK_PROMPT_TEMPLATE.format(
+            workspace_path=memory_store.workspace_path,
+            channel_line=channel_line,
+            transcript=transcript,
+        )
+        options = ClaudeAgentOptions(
+            system_prompt=MEMORY_HOOK_SYSTEM_PROMPT,
+            model="claude-haiku-4-5",
+            allowed_tools=["Bash"],
+            permission_mode="bypassPermissions",
+            max_turns=5,
+            stderr=self._log_stderr,
+        )
+
+        # 更新前のファイル mtime を記録
+        def _mtime(p: Path) -> float:
+            return p.stat().st_mtime if p.exists() else 0.0
+
+        workspace_mtime_before = _mtime(memory_store.workspace_path)
+        channel_mtime_before = _mtime(memory_store.channel_path(channel_id))
+
+        logger.info("Memory hook started for channel %s", channel_id)
+        client = ClaudeSDKClient(options=options)
+        try:
+            await client.connect(memory_prompt)
+            async for _ in client.receive_response():
+                pass
+        except Exception:
+            logger.exception("Memory hook error for channel %s", channel_id)
+        finally:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+
+        # 更新されたファイルをログに出す
+        updated = []
+        if _mtime(memory_store.workspace_path) != workspace_mtime_before:
+            updated.append("workspace.md")
+        if (
+            channel_mem_enabled
+            and _mtime(memory_store.channel_path(channel_id)) != channel_mtime_before
+        ):
+            updated.append(f"channels/{channel_id}.md")
+
+        if updated:
+            logger.info("Memory hook updated: %s", ", ".join(updated))
+        else:
+            logger.info("Memory hook completed (no updates) for channel %s", channel_id)
 
     async def cleanup(self) -> None:
         now = time.time()

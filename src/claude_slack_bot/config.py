@@ -22,6 +22,6 @@ MAX_TURNS: int = int(os.getenv("MAX_TURNS", "30"))
 
 MEMORY_DIR: Path = Path(os.getenv("MEMORY_DIR", "~/.claude/slack-memory")).expanduser()
 
-_CHANNEL_MEMORY_ENABLED_RAW: str = os.getenv("CHANNEL_MEMORY_ENABLED", "")
+_CHANNEL_MEMORY_ENABLED_RAW: str = os.getenv("CHANNEL_MEMORY_ENABLED", "all")
 CHANNEL_MEMORY_ALL: bool = _CHANNEL_MEMORY_ENABLED_RAW.strip().lower() == "all"
-CHANNEL_MEMORY_ENABLED: set[str] = set(_list_from_env("CHANNEL_MEMORY_ENABLED", ""))
+CHANNEL_MEMORY_ENABLED: set[str] = set(_list_from_env("CHANNEL_MEMORY_ENABLED", "all"))

@@ -7,6 +7,9 @@ _OAUTH_TOKEN = $(shell security find-generic-password -s "Claude Code-credential
 _GOG_TOKEN_WORK = $(shell gog auth tokens export ca01222@cartahd.com --out /tmp/.gog_work.json >/dev/null 2>&1 && cat /tmp/.gog_work.json && rm -f /tmp/.gog_work.json)
 _GOG_TOKEN_PERSONAL = $(shell gog auth tokens export x2cnk8x@gmail.com --out /tmp/.gog_personal.json >/dev/null 2>&1 && cat /tmp/.gog_personal.json && rm -f /tmp/.gog_personal.json)
 
+# GCP OAuth client credentials for gogcli
+_GOG_CREDENTIALS = $(shell cat ~/.googlecloud/client_secret_*.json 2>/dev/null)
+
 run:
 	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run claude-slack-bot
 
@@ -14,13 +17,14 @@ dev:
 	@export CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) && uv run python -m claude_slack_bot.main
 
 docker-build:
-	docker compose build
+	GITHUB_TOKEN=$(shell gh auth token -u xcnkx) docker compose build
 
 docker-run: docker-build
 	@docker compose run --rm -d \
 		-e CLAUDE_CODE_OAUTH_TOKEN=$(_OAUTH_TOKEN) \
 		-e GOG_TOKEN_WORK='$(_GOG_TOKEN_WORK)' \
 		-e GOG_TOKEN_PERSONAL='$(_GOG_TOKEN_PERSONAL)' \
+		-e GOG_CREDENTIALS='$(_GOG_CREDENTIALS)' \
 		-e LOG_LEVEL=$(or $(LOG_LEVEL),INFO) \
 		-e PYTHONUNBUFFERED=1 \
 		bot
