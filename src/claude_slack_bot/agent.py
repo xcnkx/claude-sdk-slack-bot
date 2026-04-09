@@ -10,15 +10,21 @@ from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
 
 from claude_slack_bot.config import (
     ALLOWED_TOOLS,
+    CHANNEL_MEMORY_ALL,
+    CHANNEL_MEMORY_ENABLED,
     MAX_TURNS,
+    MEMORY_DIR,
     PERMISSION_MODE,
     SESSION_TTL_SECONDS,
 )
+from claude_slack_bot.memory import MemoryStore
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
-あなたはSlack上で動作するアシスタントです。回答はSlackのmrkdwn記法で整形してください。
+memory_store = MemoryStore(MEMORY_DIR)
+
+SYSTEM_PROMPT_BASE = """\
+あなたはSlack上で動作するパーソナルアシスタントです。回答はSlackのmrkdwn記法で整形してください。
 
 ## Slack mrkdwn記法ルール
 - 太字: *テキスト*
@@ -37,10 +43,21 @@ SYSTEM_PROMPT = """\
 - 日本語で回答する
 """
 
+MEMORY_UPDATE_INSTRUCTIONS = """\
+
+## 記憶の更新ルール
+- ワークスペース全体で使える永続的な事実（会社情報、人物情報、設定など）を学んだ場合は `{workspace_path}` に追記する
+- このチャンネル固有の情報（今日の天気、チームの現状、チャンネル内でよく使う情報など）を学んだ場合は `{channel_path}` に追記する
+- 記憶の追記: Bash ツールで `printf '\\n- 新しい情報\\n' >> /path/to/file.md`
+- 一時的な情報（今日の予定など日付が変われば無意味になる情報）は記憶に書かない
+- 更新すべき情報がなければ記憶ファイルは触らない
+"""
+
 
 @dataclass
 class _SessionEntry:
     client: ClaudeSDKClient
+    channel_id: str
     last_used: float = field(default_factory=time.time)
 
 
@@ -53,9 +70,25 @@ class SessionManager:
     def _log_stderr(line: str) -> None:
         logger.warning("agent stderr: %s", line.rstrip())
 
-    def _make_options(self) -> ClaudeAgentOptions:
+    def _build_system_prompt(
+        self, channel_id: str, workspace_mem: str, channel_mem: str
+    ) -> str:
+        parts = [SYSTEM_PROMPT_BASE]
+        if workspace_mem:
+            parts.append(f"\n## ワークスペース記憶\n{workspace_mem}")
+        if channel_mem:
+            parts.append(f"\n## チャンネル記憶\n{channel_mem}")
+        parts.append(
+            MEMORY_UPDATE_INSTRUCTIONS.format(
+                workspace_path=memory_store.workspace_path,
+                channel_path=memory_store.channel_path(channel_id),
+            )
+        )
+        return "".join(parts)
+
+    def _make_options(self, system_prompt: str) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             setting_sources=["user"],
             allowed_tools=list(ALLOWED_TOOLS),
             permission_mode=PERMISSION_MODE,
@@ -63,16 +96,29 @@ class SessionManager:
             stderr=self._log_stderr,
         )
 
-    async def send_message(self, thread_ts: str, prompt: str) -> str:
+    async def has_session(self, session_key: str) -> bool:
         async with self._lock:
-            entry = self._sessions.get(thread_ts)
+            return session_key in self._sessions
+
+    async def send_message(self, session_key: str, prompt: str, channel_id: str) -> str:
+        async with self._lock:
+            entry = self._sessions.get(session_key)
 
         if entry is None:
-            client = ClaudeSDKClient(options=self._make_options())
+            workspace_mem = memory_store.load_workspace()
+            channel_mem = (
+                memory_store.load_channel(channel_id)
+                if (CHANNEL_MEMORY_ALL or channel_id in CHANNEL_MEMORY_ENABLED)
+                else ""
+            )
+            system_prompt = self._build_system_prompt(
+                channel_id, workspace_mem, channel_mem
+            )
+            client = ClaudeSDKClient(options=self._make_options(system_prompt))
             await client.connect(prompt)
-            entry = _SessionEntry(client=client)
+            entry = _SessionEntry(client=client, channel_id=channel_id)
             async with self._lock:
-                self._sessions[thread_ts] = entry
+                self._sessions[session_key] = entry
         else:
             entry.last_used = time.time()
             await entry.client.query(prompt)

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 SLACK_MESSAGE_MAX_LEN = 3900
 
+
 app = AsyncApp(token=SLACK_BOT_TOKEN)
 session_manager = SessionManager()
 
@@ -48,7 +49,7 @@ async def handle_mention(event: dict, say, client) -> None:  # noqa: ANN001
 
     await client.reactions_add(channel=channel, name="eyes", timestamp=ts)
     try:
-        result = await session_manager.send_message(thread_ts, text)
+        result = await session_manager.send_message(thread_ts, text, channel_id=channel)
         for chunk in _split_text(result):
             await say(text=chunk, thread_ts=thread_ts)
     except Exception:
@@ -68,26 +69,58 @@ async def handle_mention(event: dict, say, client) -> None:  # noqa: ANN001
 async def handle_thread_message(event: dict, say, client) -> None:  # noqa: ANN001
     if event.get("subtype"):
         return
-    thread_ts = event.get("thread_ts")
-    if thread_ts is None:
-        return
     if event.get("bot_id"):
         return
 
-    # スレッドにアクティブセッションがある場合のみ反応
-    if thread_ts not in session_manager._sessions:
+    channel_type = event.get("channel_type")
+    channel = event["channel"]
+    ts = event["ts"]
+
+    # DM処理
+    if channel_type == "im":
+        user_id = event.get("user")
+        if not user_id:
+            return
+        text = _strip_mention(event.get("text", ""))
+        if not text:
+            return
+        session_key = f"dm:{user_id}"
+        await client.reactions_add(channel=channel, name="eyes", timestamp=ts)
+        try:
+            result = await session_manager.send_message(
+                session_key, text, channel_id=channel
+            )
+            for chunk in _split_text(result):
+                await say(text=chunk, channel=channel)
+        except Exception:
+            logger.exception("Error processing DM message")
+            await say(
+                text="エラーが発生しました。しばらくしてからお試しください。",
+                channel=channel,
+            )
+        finally:
+            try:
+                await client.reactions_remove(
+                    channel=channel, name="eyes", timestamp=ts
+                )
+            except Exception:
+                pass
+        return
+
+    # チャンネルスレッドのフォローアップ
+    thread_ts = event.get("thread_ts")
+    if thread_ts is None:
+        return
+    if not await session_manager.has_session(thread_ts):
         return
 
     text = _strip_mention(event.get("text", ""))
     if not text:
         return
 
-    channel = event["channel"]
-    ts = event["ts"]
-
     await client.reactions_add(channel=channel, name="eyes", timestamp=ts)
     try:
-        result = await session_manager.send_message(thread_ts, text)
+        result = await session_manager.send_message(thread_ts, text, channel_id=channel)
         for chunk in _split_text(result):
             await say(text=chunk, thread_ts=thread_ts)
     except Exception:

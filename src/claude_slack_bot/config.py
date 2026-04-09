@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 
 def _list_from_env(key: str, default: str) -> list[str]:
@@ -18,3 +19,9 @@ ALLOWED_TOOLS: list[str] = _list_from_env(
 PERMISSION_MODE: str = os.getenv("PERMISSION_MODE", "bypassPermissions")
 SESSION_TTL_SECONDS: int = int(os.getenv("SESSION_TTL_SECONDS", "1800"))
 MAX_TURNS: int = int(os.getenv("MAX_TURNS", "30"))
+
+MEMORY_DIR: Path = Path(os.getenv("MEMORY_DIR", "~/.claude/slack-memory")).expanduser()
+
+_CHANNEL_MEMORY_ENABLED_RAW: str = os.getenv("CHANNEL_MEMORY_ENABLED", "")
+CHANNEL_MEMORY_ALL: bool = _CHANNEL_MEMORY_ENABLED_RAW.strip().lower() == "all"
+CHANNEL_MEMORY_ENABLED: set[str] = set(_list_from_env("CHANNEL_MEMORY_ENABLED", ""))
