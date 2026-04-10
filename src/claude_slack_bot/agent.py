@@ -208,10 +208,11 @@ class SessionManager:
         options = ClaudeAgentOptions(
             system_prompt=MEMORY_HOOK_SYSTEM_PROMPT,
             model="claude-haiku-4-5",
-            allowed_tools=["Bash"],
+            allowed_tools=["Bash", "Read", "Write"],
             permission_mode="bypassPermissions",
             max_turns=5,
             stderr=self._log_stderr,
+            add_dirs=[memory_store._dir],
         )
 
         # 更新前のファイル mtime を記録
